@@ -243,6 +243,18 @@
   .cp-pip:hover { transform:scale(1.1); box-shadow:0 2px 6px rgba(0,0,0,0.15); }
   .cp-pip.done { background:var(--forest); }
   .cp-pip.partial { background:#f2a65a; }
+  
+  /* POLLS SECTION */
+  .polls-section { background:white; border-radius:16px; padding:1.25rem; box-shadow:0 2px 12px rgba(0,0,0,0.07); margin-bottom:1.5rem; }
+  .polls-title { font-weight:800; font-size:0.9rem; color:var(--dark); margin-bottom:1rem; display:flex; align-items:center; gap:0.5rem; }
+  .polls-container { display:flex; flex-direction:column; gap:1rem; }
+  .poll-card { background:#f9fafa; border:1px solid #e8eef0; border-radius:12px; padding:1rem; }
+  .poll-question { font-weight:700; font-size:0.95rem; color:var(--dark); margin-bottom:0.75rem; }
+  .poll-options { display:flex; flex-direction:column; gap:0.5rem; }
+  .poll-option { display:flex; align-items:center; gap:0.75rem; font-size:0.88rem; color:#6a7a7b; }
+  .poll-option-label { flex:1; }
+  .poll-option-tally { font-size:1rem; letter-spacing:0.05em; }
+  .polls-empty { color:#9aabac; font-size:0.88rem; text-align:center; padding:1.5rem 1rem; font-style:italic; }
 
   /* TIP + FOOD OF THE DAY */
   .daily-highlights { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-top:0; margin-bottom:0; }
@@ -509,6 +521,7 @@
   <button class="nav-tab" onclick="showPanel('day9')">Apr 11</button>
   <button class="nav-tab" onclick="showPanel('day10')">Apr 12</button>
   <button class="nav-tab" id="family-nav-tab" onclick="showPanel('family')">👪 Family</button>
+  <button class="nav-tab" id="polls-archive-nav-tab" onclick="showPanel('polls-archive')">📋 Polls</button>
   <button class="nav-tab" id="report-nav-tab" onclick="showPanel('report')">🏆 Report Card</button>
   <a class="nav-tab" href="https://music.apple.com/us/playlist/spring-break-vancouver-ca/pl.u-AkAmPN3Tx3J8avl" target="_blank" rel="noopener" style="text-decoration:none;">🎵 Soundtrack</a>
 </nav>
@@ -587,6 +600,15 @@
     <div class="dr-card" id="dr-card"></div>
   </div>
 
+  <!-- POLLS SECTION (pre-trip only, before April 3) -->
+  <div class="polls-section" id="polls-section" style="display:none;">
+    <div class="polls-title">📊 Family Polls</div>
+    <div class="polls-container" id="polls-container">
+      <div class="polls-empty">Loading polls…</div>
+    </div>
+  </div>
+
+  <!-- CHALLENGE PROGRESS SECTION (during/after trip, from April 3) -->
   <div class="challenge-progress-section" id="challenge-progress">
     <div class="cp-title">🏆 Challenge Progress</div>
     <div class="cp-grid" id="cp-grid"></div>
@@ -848,6 +870,10 @@
   </div>
 </div>
 
+<!-- POLLS ARCHIVE TAB -->
+<div class="day-panel" id="panel-polls-archive">
+</div>
+
 </main>
 
 <!-- REVIEW MODAL -->
@@ -919,6 +945,58 @@ const PROFILES = {
   Sara:   { emoji:'🐼', color:'#8e44ad' },
   Sophia: { emoji:'🐵', color:'#27ae60' },
 };
+
+// ── AUTOMATED POLLS (Firebase) ──
+// Poll questions: you'll provide 5 polls, one every other day, 10 days before trip
+// Structure: { day, question, type: 'single-choice', options: [...], pollId, opens: date, closes: date }
+const pollsData = [
+  {
+    day: 1,
+    pollId: 'poll-001',
+    question: "🥟 Please order twice as many…",
+    type: "single-choice",
+    options: ["🐷 Pork Buns", "🥡 Soup Dumplings", "🤫 Shu Mai"]
+  },
+  {
+    day: 2,
+    pollId: 'poll-002',
+    question: "🎲 Most important game to bring?",
+    type: "single-choice",
+    options: ["🐀 Rat-A-Tat-Cat", "🛡️ Cover Your Assets", "👑 Monopoly Deal"]
+  },
+  {
+    day: 3,
+    pollId: 'poll-003',
+    question: "✨ Catch me at my best when I'm:",
+    type: "single-choice",
+    options: ["🍽️ Eating Vancouver Treats", "🚁 FlyingOver Vancouver", "⛴️ On the SeaBus", "🏛️ Cruising the VAG"]
+  },
+  {
+    day: 4,
+    pollId: 'poll-004',
+    question: "🎉 Most excited for:",
+    type: "single-choice",
+    options: ["😋 Delicious food", "👨‍👩‍👧‍👦 Chillin with the fam", "🌟 Seeing new things", "🙌 All of the above"]
+  },
+  {
+    day: 5,
+    pollId: 'poll-005',
+    question: "🧳 I feel pretty close to final on my packing list:",
+    type: "single-choice",
+    options: ["✅ Yes", "❌ No", "🤐 Let's Not Talk About It"]
+  },
+  {
+    day: 6,
+    pollId: 'poll-006',
+    question: "⏰ Crunch Time - We leave tomorrow. What are you thinking for breaky?",
+    type: "single-choice",
+    options: ["🍞 Toast or a Bar", "🍳 Hot Breakfast", "🥤 Shake", "🤢 Trying Not to Vomit"]
+  }
+];
+
+let currentPoll = null;           // { id, question, options, votes: {Mom: 0, Dad: 1, ...}, status: 'OPEN'|'CLOSED' }
+let pollArchive = [];             // All polls (open + closed) for archive tab
+let userVote = {};                // { pollId: 'A' } - tracks what current user voted for
 const allProfiles = {
   reviews:     { Mom:{}, Dad:{}, Sara:{}, Sophia:{} },
   suggestions: { Mom:{}, Dad:{}, Sara:{}, Sophia:{} },
@@ -1173,17 +1251,404 @@ hoodsPresent.forEach(hood => {
   sectionsEl.appendChild(section);
 });
 
+// ─── DAILY QUESTION POLLS ──────────────────────────────
+
+/**
+ * Fetch polls from Google Sheet and display them on Overview
+ * Google Sheets API v4 reads public sheet via API key
+ */
+// ─── AUTOMATED POLLS (Firebase) ──────────────────────────
+
+/**
+ * Get the current active poll based on date
+ * One poll every other day, 10 days before trip (Mar 20, 22, 24, 26, 28, 30, Apr 1, 3)
+ * Actually 5 polls: days: 0, 2, 4, 6, 8 (10, 8, 6, 4, 2 days before trip)
+ */
+function getCurrentPoll() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tripStart = new Date(2026, 3, 3); // April 3, 2026
+  
+  // If trip has started or no polls configured, return null
+  if (today >= tripStart || pollsData.length === 0) {
+    return null;
+  }
+
+  // Calculate days until trip
+  const daysUntilTrip = Math.ceil((tripStart - today) / (1000 * 60 * 60 * 24));
+  
+  // Poll schedule: one every other day, starting 10 days before
+  // Days 10, 8, 6, 4, 2 before trip = polls 0, 1, 2, 3, 4
+  const pollIndex = Math.floor((10 - daysUntilTrip) / 2);
+  
+  if (pollIndex >= 0 && pollIndex < pollsData.length) {
+    return pollsData[pollIndex];
+  }
+  return null;
+}
+
+/**
+ * Load current poll from Firebase and set up live listening
+ */
+async function loadCurrentPoll() {
+  if (!currentProfile) return;
+  
+  const poll = getCurrentPoll();
+  if (!poll) {
+    // No active poll, hide polls section
+    const pollsSection = document.getElementById('polls-section');
+    const challengeProgress = document.getElementById('challenge-progress');
+    if (pollsSection) pollsSection.style.display = 'none';
+    if (challengeProgress) challengeProgress.style.display = 'block';
+    return;
+  }
+
+  try {
+    // Try to load from Firebase
+    const pollDocId = `vc:poll:${poll.pollId || poll.day}`;
+    const pollDoc = await cloudGet(pollDocId);
+
+    if (!pollDoc) {
+      // Poll doesn't exist yet, create it
+      const newPoll = {
+        day: poll.day,
+        question: poll.question,
+        options: poll.options,
+        type: 'single-choice',
+        votes: {
+          'Mom': null,
+          'Dad': null,
+          'Sara': null,
+          'Sophia': null
+        },
+        status: 'OPEN',
+        createdDate: new Date().toISOString()
+      };
+      await cloudSet(pollDocId, newPoll);
+      currentPoll = newPoll;
+    } else {
+      currentPoll = pollDoc;
+    }
+
+    // Load user's previous vote (if any)
+    const userVoteKey = `vc:poll:vote:${currentProfile}:${pollDocId}`;
+    const savedVote = await cloudGet(userVoteKey);
+    if (savedVote) {
+      userVote[pollDocId] = savedVote;
+    }
+
+    displayPoll(currentPoll, pollDocId);
+
+    // Load poll archive
+    await loadPollArchive();
+  } catch (error) {
+    console.error('Error loading poll:', error);
+  }
+}
+
+/**
+ * Submit a vote for the current poll
+ */
+async function submitPollVote(optionIndex) {
+  if (!currentProfile || !currentPoll) return;
+
+  try {
+    const pollDocId = `vc:poll:${currentPoll.day}`;
+    const optionLetter = String.fromCharCode(65 + optionIndex); // A, B, C, D
+
+    // Update votes in Firebase
+    const updated = { ...currentPoll };
+    updated.votes[currentProfile] = optionLetter;
+    await cloudSet(pollDocId, updated);
+
+    // Save user's vote locally
+    const userVoteKey = `vc:poll:vote:${currentProfile}:${pollDocId}`;
+    await cloudSet(userVoteKey, optionLetter);
+
+    // Update local state
+    currentPoll = updated;
+    userVote[pollDocId] = optionLetter;
+
+    // Refresh display
+    displayPoll(currentPoll, pollDocId);
+  } catch (error) {
+    console.error('Error submitting vote:', error);
+  }
+}
+
+/**
+ * Display the current poll (voting interface or results)
+ */
+function displayPoll(poll, pollDocId) {
+  const container = document.getElementById('polls-container');
+  const pollsSection = document.getElementById('polls-section');
+  const challengeProgress = document.getElementById('challenge-progress');
+  
+  if (!container || !poll) return;
+
+  // Show polls section, hide challenge progress (we're pre-trip)
+  if (pollsSection) pollsSection.style.display = 'block';
+  if (challengeProgress) challengeProgress.style.display = 'none';
+
+  container.innerHTML = '';
+
+  // Create poll card
+  const card = document.createElement('div');
+  card.style.cssText = 'background: white; border: 0.5px solid #e0e0e0; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem;';
+
+  // Header
+  const header = document.createElement('div');
+  header.style.cssText = 'margin-bottom: 1rem;';
+  const statusLabel = document.createElement('div');
+  statusLabel.style.cssText = 'font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #9aabac; font-weight: 600; margin-bottom: 0.5rem;';
+  statusLabel.textContent = `📊 Family Poll · ${poll.status}`;
+  
+  const question = document.createElement('h3');
+  question.style.cssText = 'margin: 0; font-size: 16px; font-weight: 600; color: #2c2c2c;';
+  question.textContent = poll.question;
+
+  header.appendChild(statusLabel);
+  header.appendChild(question);
+  card.appendChild(header);
+
+  if (poll.status === 'OPEN') {
+    // Voting interface
+    const optionsDiv = document.createElement('div');
+    optionsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.5rem;';
+
+    poll.options.forEach((option, idx) => {
+      const optionDiv = document.createElement('div');
+      optionDiv.style.cssText = 'display: flex; align-items: center; gap: 12px; padding: 12px; border: 0.5px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: background-color 0.15s;';
+      
+      optionDiv.onmouseover = () => optionDiv.style.backgroundColor = '#f5f5f5';
+      optionDiv.onmouseout = () => optionDiv.style.backgroundColor = 'transparent';
+
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'poll-option';
+      radio.value = idx;
+      radio.style.cssText = 'width: 18px; height: 18px; cursor: pointer;';
+      
+      const label = document.createElement('label');
+      label.style.cssText = 'flex: 1; font-weight: 500; font-size: 14px; cursor: pointer; margin: 0;';
+      label.textContent = option;
+
+      // Show current votes
+      const voteTally = document.createElement('div');
+      voteTally.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+      
+      const voteCount = Object.values(poll.votes).filter(v => v === String.fromCharCode(65 + idx)).length;
+      if (voteCount > 0) {
+        const countSpan = document.createElement('span');
+        countSpan.style.cssText = 'font-size: 11px; color: #9aabac;';
+        countSpan.textContent = `${voteCount} vote${voteCount > 1 ? 's' : ''}`;
+        voteTally.appendChild(countSpan);
+
+        // Show voter emojis
+        const emojiSpan = document.createElement('span');
+        emojiSpan.style.cssText = 'font-size: 14px; letter-spacing: 2px;';
+        const voters = Object.keys(poll.votes).filter(name => poll.votes[name] === String.fromCharCode(65 + idx));
+        emojiSpan.textContent = voters.map(name => PROFILES[name].emoji).join('');
+        voteTally.appendChild(emojiSpan);
+      }
+
+      optionDiv.appendChild(radio);
+      optionDiv.appendChild(label);
+      if (voteTally.children.length > 0) {
+        optionDiv.appendChild(voteTally);
+      }
+
+      optionDiv.onclick = (e) => {
+        if (e.target !== radio) radio.checked = true;
+      };
+
+      optionsDiv.appendChild(optionDiv);
+    });
+
+    card.appendChild(optionsDiv);
+
+    // Vote button
+    const voteBtn = document.createElement('button');
+    voteBtn.style.cssText = 'width: 100%; padding: 10px; background: transparent; border: 0.5px solid #c0c0c0; color: #2c2c2c; font-weight: 500; font-size: 14px; border-radius: 8px; cursor: pointer; transition: background-color 0.15s;';
+    voteBtn.textContent = '↗ Cast your vote';
+    voteBtn.onmouseover = () => voteBtn.style.backgroundColor = '#f5f5f5';
+    voteBtn.onmouseout = () => voteBtn.style.backgroundColor = 'transparent';
+    voteBtn.onclick = () => {
+      const selected = document.querySelector('input[name="poll-option"]:checked');
+      if (selected) {
+        submitPollVote(parseInt(selected.value));
+      }
+    };
+    card.appendChild(voteBtn);
+  } else {
+    // Results display
+    const resultsDiv = document.createElement('div');
+    resultsDiv.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
+
+    const totalVotes = Object.values(poll.votes).filter(v => v !== null).length;
+
+    poll.options.forEach((option, idx) => {
+      const optionLetter = String.fromCharCode(65 + idx);
+      const voteCount = Object.values(poll.votes).filter(v => v === optionLetter).length;
+      const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+
+      const resultRow = document.createElement('div');
+      resultRow.style.cssText = 'display: flex; align-items: center; gap: 12px;';
+
+      const optionLabel = document.createElement('span');
+      optionLabel.style.cssText = 'flex: 0 0 100px; font-weight: 500; font-size: 14px;';
+      optionLabel.textContent = option;
+
+      const barContainer = document.createElement('div');
+      barContainer.style.cssText = 'flex: 1; height: 20px; background: #f0f0f0; border-radius: 4px; position: relative;';
+      
+      const bar = document.createElement('div');
+      bar.style.cssText = `width: ${percentage}%; height: 100%; background: #3d405b; border-radius: 4px; transition: width 0.3s;`;
+      barContainer.appendChild(bar);
+
+      const percentSpan = document.createElement('span');
+      percentSpan.style.cssText = 'flex: 0 0 40px; text-align: right; font-size: 11px; color: #9aabac; font-weight: 500;';
+      percentSpan.textContent = `${percentage}%`;
+
+      const emojiSpan = document.createElement('span');
+      emojiSpan.style.cssText = 'flex: 0 0 auto; font-size: 13px;';
+      const voters = Object.keys(poll.votes).filter(name => poll.votes[name] === optionLetter);
+      emojiSpan.textContent = voters.map(name => PROFILES[name].emoji).join('');
+
+      resultRow.appendChild(optionLabel);
+      resultRow.appendChild(barContainer);
+      resultRow.appendChild(percentSpan);
+      resultRow.appendChild(emojiSpan);
+      resultsDiv.appendChild(resultRow);
+    });
+
+    card.appendChild(resultsDiv);
+  }
+
+  container.appendChild(card);
+
+  // Add archive link
+  const archiveLink = document.createElement('div');
+  archiveLink.style.cssText = 'text-align: center; margin-top: 1rem; font-size: 12px;';
+  const link = document.createElement('a');
+  link.href = '#';
+  link.style.cssText = 'color: #378add; text-decoration: none; cursor: pointer;';
+  link.textContent = '📋 View all poll results →';
+  link.onclick = (e) => {
+    e.preventDefault();
+    showPanel('polls-archive');
+  };
+  archiveLink.appendChild(link);
+  container.appendChild(archiveLink);
+}
+
+/**
+ * Load all polls for archive display
+ */
+async function loadPollArchive() {
+  try {
+    pollArchive = [];
+    for (let i = 0; i < pollsData.length; i++) {
+      const poll = pollsData[i];
+      const pollDocId = `vc:poll:${poll.pollId || poll.day}`;
+      const pollDoc = await cloudGet(pollDocId);
+      if (pollDoc) {
+        pollArchive.push(pollDoc);
+      }
+    }
+  } catch (error) {
+    console.error('Error loading poll archive:', error);
+  }
+}
+
+/**
+ * Display all polls in archive
+ */
+function displayPollArchive() {
+  const container = document.getElementById('panel-polls-archive');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="day-header">
+      <div class="day-number">📋</div>
+      <div class="day-info">
+        <h2>Poll Results Archive</h2>
+        <p>All family polls from the pre-trip voting period</p>
+      </div>
+    </div>
+    <div class="activities" id="archive-polls-list"></div>
+  `;
+
+  const list = document.getElementById('archive-polls-list');
+  
+  if (pollArchive.length === 0) {
+    list.innerHTML = '<p style="color: #9aabac; text-align: center; padding: 2rem;">No polls yet</p>';
+    return;
+  }
+
+  pollArchive.forEach((poll, idx) => {
+    const card = document.createElement('div');
+    card.className = 'activity-card';
+
+    const totalVotes = Object.values(poll.votes).filter(v => v !== null).length;
+
+    let resultsHTML = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+    poll.options.forEach((option, optIdx) => {
+      const optionLetter = String.fromCharCode(65 + optIdx);
+      const voteCount = Object.values(poll.votes).filter(v => v === optionLetter).length;
+      const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
+      
+      const voters = Object.keys(poll.votes).filter(name => poll.votes[name] === optionLetter).map(name => PROFILES[name].emoji).join('');
+
+      resultsHTML += `
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="flex: 0 0 120px; font-weight: 500; font-size: 13px;">${option}</span>
+          <div style="flex: 1; height: 16px; background: #f0f0f0; border-radius: 3px; position: relative;">
+            <div style="width: ${percentage}%; height: 100%; background: #3d405b; border-radius: 3px;"></div>
+          </div>
+          <span style="flex: 0 0 30px; text-align: right; font-size: 11px; color: #9aabac;">${percentage}%</span>
+          <span style="flex: 0 0 auto; font-size: 12px;">${voters}</span>
+        </div>
+      `;
+    });
+    resultsHTML += '</div>';
+
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="card-icon forest">📊</div>
+        <div>
+          <div class="card-title">Poll ${idx + 1}</div>
+          <span class="card-tag tag-explore">${poll.question}</span>
+        </div>
+      </div>
+      <div class="card-body">
+        ${resultsHTML}
+      </div>
+    `;
+
+    list.appendChild(card);
+  });
+}
+
+// ─── PANEL SWITCHING ───────────────────────────────
+
 // ─── PANEL SWITCHING ───────────────────────────────
 function showPanel(id, skipScroll) {
   document.querySelectorAll('.day-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
   const panel = document.getElementById('panel-'+id);
   if (panel) panel.classList.add('active');
-  const order=['overview','day1','day2','day3','day4','day5','day6','day7','day8','day9','day10','family','report'];
+  const order=['overview','day1','day2','day3','day4','day5','day6','day7','day8','day9','day10','family','polls-archive','report'];
   const idx=order.indexOf(id);
   const tabs=document.querySelectorAll('.nav-tab');
   if(tabs[idx]){ tabs[idx].classList.add('active'); tabs[idx].scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'}); }
-  if(id==='overview') setTimeout(()=>map.invalidateSize(),100);
+  if(id==='overview') {
+    setTimeout(()=>map.invalidateSize(),100);
+    loadCurrentPoll(); // Load polls when Overview is opened
+  }
+  if(id==='polls-archive') {
+    displayPollArchive();
+  }
   if(id==='family') { loadAllResponses(); renderProgressTracker('cp-grid-family'); }
   if(id==='report') renderReportCard();
   if(!skipScroll) window.scrollTo({top:0,behavior:'smooth'});
