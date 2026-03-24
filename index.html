@@ -998,6 +998,7 @@ let currentPoll = null;           // { id, question, options, votes: {Mom: 0, Da
 let pollArchive = [];             // All polls (open + closed) for archive tab
 let userVote = {};                // { pollId: 'A' } - tracks what current user voted for
 let currentPollUnsub = null;      // Firestore unsubscribe for current poll real-time listener
+let currentPollDocId = null;      // Stable doc key for the active poll (used by submitPollVote)
 let pollListeners = [];           // Firestore unsubscribe functions for poll archive listeners
 let pollArchiveMap = {};          // pollDocId -> poll data, keyed for real-time updates
 const allProfiles = {
@@ -1309,6 +1310,7 @@ async function loadCurrentPoll() {
   try {
     // Try to load from Firebase
     const pollDocId = `vc:poll:${poll.pollId || poll.day}`;
+    currentPollDocId = pollDocId;
     const pollDoc = await cloudGet(pollDocId);
 
     if (!pollDoc) {
@@ -1363,10 +1365,10 @@ async function loadCurrentPoll() {
  * Submit a vote for the current poll
  */
 async function submitPollVote(optionIndex) {
-  if (!currentProfile || !currentPoll) return;
+  if (!currentProfile || !currentPoll || !currentPollDocId) return;
 
   try {
-    const pollDocId = `vc:poll:${currentPoll.day}`;
+    const pollDocId = currentPollDocId;
     const optionLetter = String.fromCharCode(65 + optionIndex); // A, B, C, D
 
     // Update votes in Firebase
@@ -1441,6 +1443,7 @@ function displayPoll(poll, pollDocId) {
       radio.name = 'poll-option';
       radio.value = idx;
       radio.style.cssText = 'width: 18px; height: 18px; cursor: pointer;';
+      if (userVote[pollDocId] === String.fromCharCode(65 + idx)) radio.checked = true;
       
       const label = document.createElement('label');
       label.style.cssText = 'flex: 1; font-weight: 500; font-size: 14px; cursor: pointer; margin: 0;';
