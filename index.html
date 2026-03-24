@@ -2368,6 +2368,8 @@ async function selectProfile(name) {
   // Refresh report card if currently visible
   const reportPanel = document.getElementById('panel-report');
   if (reportPanel && reportPanel.classList.contains('active')) renderReportCard();
+  // Load poll on initial overview display (overview is active by default on load)
+  loadCurrentPoll();
 }
 
 window.addEventListener('load', () => {
