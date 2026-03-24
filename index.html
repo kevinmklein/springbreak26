@@ -997,6 +997,9 @@ const pollsData = [
 let currentPoll = null;           // { id, question, options, votes: {Mom: 0, Dad: 1, ...}, status: 'OPEN'|'CLOSED' }
 let pollArchive = [];             // All polls (open + closed) for archive tab
 let userVote = {};                // { pollId: 'A' } - tracks what current user voted for
+let currentPollUnsub = null;      // Firestore unsubscribe for current poll real-time listener
+let pollListeners = [];           // Firestore unsubscribe functions for poll archive listeners
+let pollArchiveMap = {};          // pollDocId -> poll data, keyed for real-time updates
 const allProfiles = {
   reviews:     { Mom:{}, Dad:{}, Sara:{}, Sophia:{} },
   suggestions: { Mom:{}, Dad:{}, Sara:{}, Sophia:{} },
@@ -1339,8 +1342,18 @@ async function loadCurrentPoll() {
 
     displayPoll(currentPoll, pollDocId);
 
-    // Load poll archive
-    await loadPollArchive();
+    // Set up real-time listener so overview poll updates when others vote
+    if (currentPollUnsub) currentPollUnsub();
+    currentPollUnsub = db.collection(COLLECTION).doc(pollDocId).onSnapshot(doc => {
+      if (doc.exists) {
+        const data = doc.data();
+        currentPoll = data.value !== undefined ? data.value : data;
+        displayPoll(currentPoll, pollDocId);
+      }
+    }, err => console.error('Current poll listener error:', err));
+
+    // Load poll archive with real-time listeners
+    loadPollArchive();
   } catch (error) {
     console.error('Error loading poll:', error);
   }
@@ -1545,20 +1558,31 @@ function displayPoll(poll, pollDocId) {
 /**
  * Load all polls for archive display
  */
-async function loadPollArchive() {
-  try {
-    pollArchive = [];
-    for (let i = 0; i < pollsData.length; i++) {
-      const poll = pollsData[i];
-      const pollDocId = `vc:poll:${poll.pollId || poll.day}`;
-      const pollDoc = await cloudGet(pollDocId);
-      if (pollDoc) {
-        pollArchive.push(pollDoc);
+function loadPollArchive() {
+  // Clean up any existing listeners before setting up new ones
+  pollListeners.forEach(unsub => unsub());
+  pollListeners = [];
+
+  pollsData.forEach(poll => {
+    const pollDocId = `vc:poll:${poll.pollId || poll.day}`;
+    const unsub = db.collection(COLLECTION).doc(pollDocId).onSnapshot(doc => {
+      if (doc.exists) {
+        const data = doc.data();
+        pollArchiveMap[pollDocId] = data.value !== undefined ? data.value : data;
+      } else {
+        delete pollArchiveMap[pollDocId];
       }
-    }
-  } catch (error) {
-    console.error('Error loading poll archive:', error);
-  }
+      // Rebuild ordered archive and re-render if the archive panel is visible
+      pollArchive = pollsData
+        .map(p => pollArchiveMap[`vc:poll:${p.pollId || p.day}`])
+        .filter(Boolean);
+      const archivePanel = document.getElementById('panel-polls-archive');
+      if (archivePanel && archivePanel.classList.contains('active')) {
+        displayPollArchive();
+      }
+    }, err => console.error('Poll archive listener error:', err));
+    pollListeners.push(unsub);
+  });
 }
 
 /**
