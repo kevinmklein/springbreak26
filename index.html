@@ -1027,6 +1027,7 @@ let pollArchive = [];             // All polls (open + closed) for archive tab
 let userVote = {};                // { pollId: 'A' } - tracks what current user voted for
 let currentPollUnsub = null;      // Firestore unsubscribe for current poll real-time listener
 let currentPollDocId = null;      // Stable doc key for the active poll (used by submitPollVote)
+let lastPollWrite = 0;            // Timestamp of last optimistic write — guards against stale onSnapshot rollback
 let pollListeners = [];           // Firestore unsubscribe functions for poll archive listeners
 let pollArchiveMap = {};          // pollDocId -> poll data, keyed for real-time updates
 const allProfiles = {
@@ -1351,7 +1352,7 @@ async function loadCurrentPoll() {
     if (!pollDoc) {
       // Poll doesn't exist yet, create it
       const newPoll = {
-        day: poll.day,
+        date: poll.date || null,
         question: poll.question,
         options: poll.options,
         type: 'single-choice',
@@ -1385,6 +1386,16 @@ async function loadCurrentPoll() {
       if (doc.exists) {
         const data = doc.data();
         const pollData = data.value !== undefined ? data.value : data;
+        // Guard: ignore snapshots that arrived before our last optimistic write completed
+        const snapshotTs = doc.metadata && doc.metadata.hasPendingWrites ? Date.now() : (pollData._ts || 0);
+        if (Date.now() - lastPollWrite < 3000 && !doc.metadata.fromCache === false) {
+          // Within 3s of a local write — only accept if it carries our vote
+          if (pollData.votes && pollData.votes[currentProfile] !== userVote[pollDocId]) {
+            // Stale snapshot missing our vote — skip overwriting currentPoll but still display
+            displayPoll(currentPoll, pollDocId);
+            return;
+          }
+        }
         currentPoll = pollData;
         // Keep userVote in sync with what Firebase has for this user
         if (pollData.votes && pollData.votes[currentProfile]) {
@@ -1416,8 +1427,8 @@ async function submitPollVote(optionIndex) {
     updated.votes[currentProfile] = optionLetter;
 
     // ── Optimistic update BEFORE any async calls ──────────────────────
-    // This ensures that if onSnapshot fires mid-save it still reads the
-    // correct userVote and renders the emoji / checked radio correctly.
+    // Stamp lastPollWrite so the onSnapshot guard knows a local write is in-flight.
+    lastPollWrite = Date.now();
     currentPoll = updated;
     userVote[pollDocId] = optionLetter;
     displayPoll(currentPoll, pollDocId);
@@ -1602,9 +1613,9 @@ function displayPoll(poll, pollDocId) {
  * Load all polls for archive display
  */
 function loadPollArchive() {
-  // Clean up any existing listeners before setting up new ones
-  pollListeners.forEach(unsub => unsub());
-  pollListeners = [];
+  // If listeners are already active, don't tear them down and re-create
+  // (avoids listener storm when loadCurrentPoll is called on every overview visit)
+  if (pollListeners.length > 0) return;
 
   pollsData.forEach(poll => {
     const pollDocId = `vc:poll:${poll.pollId || poll.day}`;
