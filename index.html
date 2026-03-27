@@ -536,7 +536,7 @@
     <div class="trip-stats">
       <div class="trip-stat"><div class="stat-num">10</div><div class="stat-label">Days</div></div>
       <div class="trip-stat"><div class="stat-num">45+</div><div class="stat-label">Activities</div></div>
-      <div class="trip-stat"><div class="stat-num">39</div><div class="stat-label">Restaurants</div></div>
+      <div class="trip-stat"><div class="stat-num">42</div><div class="stat-label">Restaurants</div></div>
       <div class="trip-stat"><div class="stat-num">∞</div><div class="stat-label">Memories</div></div>
     </div>
   </div>
@@ -547,7 +547,7 @@
       <div class="ow-body">
         <div class="ow-label">Countdown to Vancouver</div>
         <div class="ow-value" id="countdown-value">…</div>
-        <div class="ow-sub" id="countdown-sub">April 3, 2026</div>
+        <div class="ow-sub" id="countdown-sub">Train departs Apr 3 @ 9:21am</div>
       </div>
     </div>
     <div class="ow-card" id="current-wx-card">
@@ -947,48 +947,76 @@ const PROFILES = {
 };
 
 // ── AUTOMATED POLLS (Firebase) ──
-// Poll questions: you'll provide 5 polls, one every other day, 10 days before trip
-// Structure: { day, question, type: 'single-choice', options: [...], pollId, opens: date, closes: date }
+// One poll per day at 6am PT, Mar 24 – Apr 2 (10 days before trip)
+// Structure: { date (YYYY-MM-DD), question, type: 'single-choice', options: [...], pollId }
 const pollsData = [
   {
-    day: 1,
+    date: '2026-03-24',
     pollId: 'poll-001',
     question: "🥟 Please order twice as many…",
     type: "single-choice",
     options: ["🐷 Pork Buns", "🥡 Soup Dumplings", "🤫 Shu Mai"]
   },
   {
-    day: 2,
+    date: '2026-03-25',
     pollId: 'poll-002',
+    question: "🧭 Which day of the trip are you MOST excited for?",
+    type: "single-choice",
+    options: ["🛬 Arrival Day in Gastown", "🌊 Stanley Park & Aquarium", "🏅 Granville Island & Science World", "🌿 UBC & Kitsilano"]
+  },
+  {
+    date: '2026-03-26',
+    pollId: 'poll-003',
     question: "🎲 Most important game to bring?",
     type: "single-choice",
     options: ["🐀 Rat-A-Tat-Cat", "🛡️ Cover Your Assets", "👑 Monopoly Deal"]
   },
   {
-    day: 3,
-    pollId: 'poll-003',
+    date: '2026-03-27',
+    pollId: 'poll-004',
+    question: "🍺 Olympic Village has great brewpubs. What's your order?",
+    type: "single-choice",
+    options: ["🍺 Obviously a cold beer!", "🍹 Something fancy & fruity", "🧃 Juice — I'm keeping it fresh", "☕ Coffee first, always"]
+  },
+  {
+    date: '2026-03-28',
+    pollId: 'poll-005',
     question: "✨ Catch me at my best when I'm:",
     type: "single-choice",
     options: ["🍽️ Eating Vancouver Treats", "🚁 FlyingOver Vancouver", "⛴️ On the SeaBus", "🏛️ Cruising the VAG"]
   },
   {
-    day: 4,
-    pollId: 'poll-004',
+    date: '2026-03-29',
+    pollId: 'poll-006',
+    question: "😴 Who's going to be hardest to drag out of bed on Day 1?",
+    type: "single-choice",
+    options: ["👩 Mom", "👨 Dad", "🐼 Sara", "🐵 Sophia"]
+  },
+  {
+    date: '2026-03-30',
+    pollId: 'poll-007',
     question: "🎉 Most excited for:",
     type: "single-choice",
     options: ["😋 Delicious food", "👨‍👩‍👧‍👦 Chillin with the fam", "🌟 Seeing new things", "🙌 All of the above"]
   },
   {
-    day: 5,
-    pollId: 'poll-005',
-    question: "🧳 I feel pretty close to final on my packing list:",
+    date: '2026-03-31',
+    pollId: 'poll-008',
+    question: "🎒 One thing you're secretly worried about forgetting?",
     type: "single-choice",
-    options: ["✅ Yes", "❌ No", "🤐 Let's Not Talk About It"]
+    options: ["🔌 Phone charger", "🌂 Rain jacket", "💊 Medications", "😅 Nothing — I'm SO prepared"]
   },
   {
-    day: 6,
-    pollId: 'poll-006',
-    question: "⏰ Crunch Time - We leave tomorrow. What are you thinking for breaky?",
+    date: '2026-04-01',
+    pollId: 'poll-009',
+    question: "🧳 I feel pretty close to final on my packing list:",
+    type: "single-choice",
+    options: ["✅ Yes, I'm ready!", "❌ No, help me", "🤐 Let's Not Talk About It"]
+  },
+  {
+    date: '2026-04-02',
+    pollId: 'poll-010',
+    question: "⏰ Crunch Time — train leaves tomorrow at 9:21am. What are you thinking for breaky?",
     type: "single-choice",
     options: ["🍞 Toast or a Bar", "🍳 Hot Breakfast", "🥤 Shake", "🤢 Trying Not to Vomit"]
   }
@@ -1083,6 +1111,10 @@ const foodData = [
   { name:"Le Coq Frites", price:"$", vibe:"Fried Chicken Take Out", area:"Kitsilano", lat:49.2633, lng:-123.1505, link:"https://yelp.to/hX7pxWp3Op" },
   { name:"Local Public Eatery", price:"$$", vibe:"Canadian Gastropub", area:"Kitsilano", lat:49.2741, lng:-123.1540, link:"https://yelp.to/bSgYuBNQ2Q" },
   { name:"Maxine's", price:"$$", vibe:"Brunch", area:"West End", lat:49.2778, lng:-123.1338, link:"https://www.yelp.com/biz/maxines-cafe-and-bar-vancouver" },
+
+  { name:"Craft Beer Market", price:"$$", vibe:"Canadian, Brewpub", area:"Olympic Village", lat:49.2726, lng:-123.1094, link:"https://www.yelp.com/biz/craft-vancouver" },
+  { name:"Brewhall", price:"$$", vibe:"Canadian, Brewpub", area:"Olympic Village", lat:49.2718, lng:-123.1078, link:"https://www.yelp.com/biz/brewhall-vancouver" },
+  { name:"Nook", price:"$$", vibe:"Pizza, Italian, Walkup", area:"Olympic Village", lat:49.2720, lng:-123.1012, link:"https://www.yelp.com/biz/nook-vancouver" },
 ];
 
 // ─── MAP INIT ───────────────────────────────────────
@@ -1112,20 +1144,21 @@ thingsData.forEach((v,i) => {
 
 // ─── NEIGHBOURHOOD COLOURS ──────────────────────────
 const hoodColors = {
-  "Gastown":       "#e07a5f",  // terracotta
-  "West End":      "#2980a0",  // ocean blue
-  "Chinatown":     "#c0392b",  // red
-  "Yaletown":      "#8e44ad",  // purple
-  "Downtown":      "#1a5f7a",  // dark teal
-  "Coal Harbour":  "#16a085",  // teal-green
-  "Kitsilano":     "#27ae60",  // green
-  "South Main":    "#d35400",  // burnt orange
-  "Granville Island": "#f39c12", // amber
-  "Richmond":      "#7f8c8d",  // grey
-  "Near Crab Park":"#2d6a4f",  // forest green
-  "Robson St":     "#2980a0",  // same as West End (it's adjacent)
-  "Downtown East": "#c0392b",  // same cluster as Chinatown
-  "Alberni St":    "#1a5f7a",  // same as Downtown
+  "Gastown":          "#e07a5f",  // terracotta
+  "West End":         "#2980a0",  // ocean blue
+  "Chinatown":        "#c0392b",  // red
+  "Yaletown":         "#8e44ad",  // purple
+  "Downtown":         "#1a5f7a",  // dark teal
+  "Coal Harbour":     "#16a085",  // teal-green
+  "Kitsilano":        "#27ae60",  // green
+  "South Main":       "#d35400",  // burnt orange
+  "Granville Island": "#f39c12",  // amber
+  "Richmond":         "#7f8c8d",  // grey
+  "Near Crab Park":   "#2d6a4f",  // forest green
+  "Olympic Village":  "#0096c7",  // bright ocean blue
+  "Robson St":        "#2980a0",  // same as West End (it's adjacent)
+  "Downtown East":    "#c0392b",  // same cluster as Chinatown
+  "Alberni St":       "#1a5f7a",  // same as Downtown
   "Western Downtown": "#1a5f7a",
 };
 function hoodColor(area) { return hoodColors[area] || "#7f8c8d"; }
@@ -1136,6 +1169,7 @@ function canonicalHood(area) {
   if (area === "Downtown East") return "Chinatown";
   if (area === "Alberni St" || area === "Western Downtown" || area === "Coal Harbour") return "Downtown";
   if (area === "Near Crab Park") return "Gastown";
+  if (area === "Olympic Village") return "Olympic Village";
   return area;
 }
 
@@ -1216,7 +1250,7 @@ thingsData.forEach((v,i) => {
 });
 
 // Build food cards grouped by neighbourhood
-const neighbourhoodOrder = ["Gastown","Downtown","West End","Chinatown","Yaletown","Kitsilano","Granville Island","Richmond"];
+const neighbourhoodOrder = ["Gastown","Downtown","West End","Chinatown","Yaletown","Olympic Village","Kitsilano","Granville Island","Richmond"];
 const byHood = {};
 foodData.forEach(r => {
   if (!byHood[r.hood]) byHood[r.hood] = [];
@@ -1264,31 +1298,32 @@ hoodsPresent.forEach(hood => {
 // ─── AUTOMATED POLLS (Firebase) ──────────────────────────
 
 /**
- * Get the current active poll based on date
- * One poll every other day, 10 days before trip (Mar 20, 22, 24, 26, 28, 30, Apr 1, 3)
- * Actually 5 polls: days: 0, 2, 4, 6, 8 (10, 8, 6, 4, 2 days before trip)
+ * Get the current active poll based on date.
+ * One poll per day at 6am PT, Mar 24 – Apr 2.
+ * Before 6am PT, the previous day's poll is still active.
  */
 function getCurrentPoll() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tripStart = new Date(2026, 3, 3); // April 3, 2026
-  
-  // If trip has started or no polls configured, return null
-  if (today >= tripStart || pollsData.length === 0) {
-    return null;
-  }
+  if (pollsData.length === 0) return null;
 
-  // Calculate days until trip
-  const daysUntilTrip = Math.ceil((tripStart - today) / (1000 * 60 * 60 * 24));
-  
-  // Poll schedule: one every other day, starting 10 days before
-  // Days 10, 8, 6, 4, 2 before trip = polls 0, 1, 2, 3, 4
-  const pollIndex = Math.floor((10 - daysUntilTrip) / 2);
-  
-  if (pollIndex >= 0 && pollIndex < pollsData.length) {
-    return pollsData[pollIndex];
+  // Determine current PT date, switching polls at 6am PT
+  const now = new Date();
+  const ptStr = now.toLocaleString('en-US', { timeZone: 'America/Vancouver' });
+  const ptNow = new Date(ptStr);
+  // If before 6am PT, roll back to previous calendar day
+  if (ptNow.getHours() < 6) {
+    ptNow.setDate(ptNow.getDate() - 1);
   }
-  return null;
+  const yyyy = ptNow.getFullYear();
+  const mm   = String(ptNow.getMonth() + 1).padStart(2, '0');
+  const dd   = String(ptNow.getDate()).padStart(2, '0');
+  const todayDate = `${yyyy}-${mm}-${dd}`;
+
+  // Trip starts Apr 3 — no pre-trip polls once we're there
+  if (todayDate >= '2026-04-03') return null;
+
+  // Find poll whose date matches today
+  const poll = pollsData.find(p => p.date === todayDate);
+  return poll || null;
 }
 
 /**
@@ -1858,15 +1893,15 @@ loadWeather();
 // ─── COUNTDOWN ──────────────────────────────────────
 // ═══════════════════════════════════════════════════
 function updateCountdown() {
-  const target = new Date('2026-04-03T00:00:00-07:00'); // Vancouver PDT
+  const target = new Date('2026-04-03T09:21:00-07:00'); // Train departs 9:21am PDT
   const now = new Date();
   const diff = target - now;
   const el = document.getElementById('countdown-value');
   const sub = document.getElementById('countdown-sub');
   if (!el) return;
   if (diff <= 0) {
-    el.textContent = "We're here! 🎉";
-    sub.textContent = "Enjoy every moment!";
+    el.textContent = "All Aboard! 🚂";
+    sub.textContent = "Vancouver, here we come!";
     document.getElementById('countdown-card').style.background = 'linear-gradient(135deg,#2d6a4f,#52b788)';
     document.getElementById('countdown-card').style.color = 'white';
     document.querySelectorAll('#countdown-card .ow-label, #countdown-card .ow-sub').forEach(e => e.style.color = 'rgba(255,255,255,0.75)');
@@ -1879,13 +1914,13 @@ function updateCountdown() {
   const secs = Math.floor((diff % 60000) / 1000);
   if (days > 1) {
     el.textContent = `${days} days`;
-    sub.textContent = `${hrs}h ${mins}m ${secs}s · April 3, 2026`;
+    sub.textContent = `${hrs}h ${mins}m ${secs}s · Train departs Apr 3 @ 9:21am`;
   } else if (days === 1) {
     el.textContent = 'Tomorrow! 🌟';
-    sub.textContent = `${hrs}h ${mins}m ${secs}s to go`;
+    sub.textContent = `${hrs}h ${mins}m ${secs}s · Train departs 9:21am`;
   } else {
     el.textContent = `${hrs}h ${mins}m ${secs}s`;
-    sub.textContent = 'Today is the day! ✈️';
+    sub.textContent = 'Train departs at 9:21am — let\'s go! 🚂';
   }
 }
 updateCountdown();
@@ -2013,7 +2048,7 @@ const dayConfig = {
   day2:  { hoods:['Downtown'], planned:[{name:'Nightingale', meal:'Dinner'}] },
   day3:  { hoods:['West End'], planned:[] },
   day4:  { hoods:['Downtown','Gastown'], planned:[] },
-  day5:  { hoods:['Granville Island','Yaletown'], planned:[] },
+  day5:  { hoods:['Granville Island','Olympic Village','Yaletown'], planned:[] },
   day6:  { hoods:['Chinatown','Yaletown'], planned:[] },
   day7:  { hoods:['Kitsilano'], planned:[] },
   day8:  { hoods:['Downtown','Kitsilano','Granville Island'], planned:[] },
