@@ -1384,7 +1384,12 @@ async function loadCurrentPoll() {
     currentPollUnsub = db.collection(COLLECTION).doc(pollDocId).onSnapshot(doc => {
       if (doc.exists) {
         const data = doc.data();
-        currentPoll = data.value !== undefined ? data.value : data;
+        const pollData = data.value !== undefined ? data.value : data;
+        currentPoll = pollData;
+        // Keep userVote in sync with what Firebase has for this user
+        if (pollData.votes && pollData.votes[currentProfile]) {
+          userVote[pollDocId] = pollData.votes[currentProfile];
+        }
         displayPoll(currentPoll, pollDocId);
       }
     }, err => console.error('Current poll listener error:', err));
@@ -1406,21 +1411,21 @@ async function submitPollVote(optionIndex) {
     const pollDocId = currentPollDocId;
     const optionLetter = String.fromCharCode(65 + optionIndex); // A, B, C, D
 
-    // Update votes in Firebase
-    const updated = { ...currentPoll };
+    // Deep-copy votes so we don't mutate the shared reference on currentPoll
+    const updated = { ...currentPoll, votes: { ...currentPoll.votes } };
     updated.votes[currentProfile] = optionLetter;
-    await cloudSet(pollDocId, updated);
 
-    // Save user's vote locally
-    const userVoteKey = `vc:poll:vote:${currentProfile}:${pollDocId}`;
-    await cloudSet(userVoteKey, optionLetter);
-
-    // Update local state
+    // ── Optimistic update BEFORE any async calls ──────────────────────
+    // This ensures that if onSnapshot fires mid-save it still reads the
+    // correct userVote and renders the emoji / checked radio correctly.
     currentPoll = updated;
     userVote[pollDocId] = optionLetter;
-
-    // Refresh display
     displayPoll(currentPoll, pollDocId);
+
+    // Persist to Firebase (in background — display is already updated)
+    const userVoteKey = `vc:poll:vote:${currentProfile}:${pollDocId}`;
+    await cloudSet(pollDocId, updated);
+    await cloudSet(userVoteKey, optionLetter);
   } catch (error) {
     console.error('Error submitting vote:', error);
   }
