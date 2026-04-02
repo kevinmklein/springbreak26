@@ -547,6 +547,7 @@
       <div class="ow-body">
         <div class="ow-label">Countdown to Vancouver</div>
         <div class="ow-value" id="countdown-value">…</div>
+        <div class="ow-sub" id="countdown-hms" style="font-size:0.95rem;font-weight:700;color:var(--dark);margin-top:0.1rem;letter-spacing:0.5px;"></div>
         <div class="ow-sub" id="countdown-sub">Train departs Apr 3 @ 9:21am</div>
       </div>
     </div>
@@ -1924,6 +1925,7 @@ function updateCountdown() {
     document.getElementById('countdown-card').style.background = 'linear-gradient(135deg,#2d6a4f,#52b788)';
     document.getElementById('countdown-card').style.color = 'white';
     document.querySelectorAll('#countdown-card .ow-label, #countdown-card .ow-sub').forEach(e => e.style.color = 'rgba(255,255,255,0.75)');
+    const hmsEl = document.getElementById('countdown-hms'); if (hmsEl) hmsEl.textContent = '';
     document.querySelectorAll('#countdown-card .ow-value').forEach(e => e.style.color = 'white');
     return;
   }
@@ -1931,11 +1933,14 @@ function updateCountdown() {
   const hrs  = Math.floor((diff % 86400000) / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
   const secs = Math.floor((diff % 60000) / 1000);
+  const hms = document.getElementById('countdown-hms');
   if (days >= 1) {
-    el.textContent = `${days}d ${hrs}h ${mins}m ${secs}s`;
+    el.textContent = `${days} ${days === 1 ? 'Day' : 'Days'}`;
+    if (hms) hms.textContent = `${hrs}h ${mins}m ${secs}s`;
     sub.textContent = 'Train departs Apr 3 @ 9:21am · Everett → Vancouver';
   } else {
     el.textContent = `${hrs}h ${mins}m ${secs}s`;
+    if (hms) hms.textContent = '';
     sub.textContent = 'Train departs at 9:21am — let\'s go! 🚂';
   }
 }
