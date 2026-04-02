@@ -1927,25 +1927,14 @@ function updateCountdown() {
     document.querySelectorAll('#countdown-card .ow-value').forEach(e => e.style.color = 'white');
     return;
   }
-  const hrs  = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  const hrs  = Math.floor((diff % 86400000) / 3600000);
   const mins = Math.floor((diff % 3600000) / 60000);
   const secs = Math.floor((diff % 60000) / 1000);
-  // Determine current PT calendar date to decide display mode
-  const ptOffset = -7; // PDT (UTC-7) in effect April 2–3
-  const nowPT = new Date(now.getTime() + ptOffset * 3600000);
-  const ptDateStr = nowPT.toISOString().slice(0, 10); // "YYYY-MM-DD" in PT
-  const totalDays = Math.floor(diff / 86400000);
-  if (ptDateStr < '2026-04-02') {
-    // April 1 or earlier — show day count based on PT calendar days remaining
-    const calDaysLeft = ptDateStr === '2026-04-01' ? 2 : totalDays;
-    el.textContent = calDaysLeft === 1 ? '1 day' : `${calDaysLeft} days`;
-    sub.textContent = `${hrs % 24}h ${mins}m ${secs}s · Train departs Apr 3 @ 9:21am`;
-  } else if (ptDateStr === '2026-04-02') {
-    // Today is April 2 in PT — genuinely "tomorrow"
-    el.textContent = 'Tomorrow! 🌟';
-    sub.textContent = `${hrs}h ${mins}m ${secs}s · Train departs 9:21am`;
+  if (days >= 1) {
+    el.textContent = `${days}d ${hrs}h ${mins}m ${secs}s`;
+    sub.textContent = 'Train departs Apr 3 @ 9:21am · Everett → Vancouver';
   } else {
-    // April 3 — departure day, under 9:21am
     el.textContent = `${hrs}h ${mins}m ${secs}s`;
     sub.textContent = 'Train departs at 9:21am — let\'s go! 🚂';
   }
