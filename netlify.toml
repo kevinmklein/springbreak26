@@ -1,2 +1,7 @@
 [functions]
   directory = "netlify/functions"
+
+[[redirects]]
+  from = "/api/icloud"
+  to = "/.netlify/functions/icloud"
+  status = 200

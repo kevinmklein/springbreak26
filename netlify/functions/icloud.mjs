@@ -1,4 +1,4 @@
-export default async (req) => {
+export const handler = async () => {
   const ICLOUD_TOKEN = process.env.ICLOUD_ALBUM_TOKEN;
 
   try {
@@ -23,9 +23,7 @@ export default async (req) => {
     const photos = stream.photos || [];
 
     if (!photos.length) {
-      return new Response(JSON.stringify({ photos: [] }), {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photos: [] }) };
     }
 
     // Step 2: fetch CDN asset URLs
@@ -51,15 +49,8 @@ export default async (req) => {
       return [{ url: `https://${loc.url_location}${loc.url_path}`, caption: photo.caption || '' }];
     });
 
-    return new Response(JSON.stringify({ photos: result }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photos: result }) };
   } catch (e) {
-    return new Response(JSON.stringify({ photos: [], error: e.message, stack: e.stack }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photos: [], error: e.message, stack: e.stack }) };
   }
 };
-
-export const config = { path: '/api/icloud' };
