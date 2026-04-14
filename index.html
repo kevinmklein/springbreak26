@@ -1944,7 +1944,7 @@ let _ssTouchX = 0;
 
 async function loadICloudAlbum() {
   try {
-    const resp = await fetch('/api/icloud');
+    const resp = await fetch('/.netlify/functions/icloud');
     const data = await resp.json();
     slideshowPhotos = data.photos || [];
     _ssCardReady(slideshowPhotos);
