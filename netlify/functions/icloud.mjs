@@ -55,8 +55,8 @@ export default async (req) => {
       headers: { 'Content-Type': 'application/json' }
     });
   } catch (e) {
-    return new Response(JSON.stringify({ photos: [], error: e.message }), {
-      status: 500,
+    return new Response(JSON.stringify({ photos: [], error: e.message, stack: e.stack }), {
+      status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
   }
