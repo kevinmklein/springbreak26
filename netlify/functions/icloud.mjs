@@ -1,5 +1,5 @@
 export default async (req) => {
-  const ICLOUD_TOKEN = 'B2XGgZLKuGAqpVP';
+  const ICLOUD_TOKEN = process.env.ICLOUD_ALBUM_TOKEN;
 
   try {
     let host = 'p62-sharedstreams.icloud.com';
