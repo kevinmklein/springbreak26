@@ -136,6 +136,8 @@
   .ow-value { font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700; color:var(--dark); line-height:1.1; }
   .ow-sub { font-size:0.78rem; color:#9aabac; margin-top:0.2rem; }
   @media (max-width:480px) { .overview-widgets { grid-template-columns:1fr; } .ow-value { font-size:1.3rem; } }
+  .ss-nav-btn { position:absolute; background:rgba(255,255,255,0.18); border:none; border-radius:50%; width:44px; height:44px; color:white; font-size:1.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s; z-index:1; }
+  .ss-nav-btn:hover { background:rgba(255,255,255,0.32); }
 
   /* OVERVIEW */
   .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 1rem; margin-bottom: 1.5rem; }
@@ -546,13 +548,17 @@
   </div>
 
   <div class="overview-widgets">
-    <div class="ow-card" id="countdown-card">
-      <div class="ow-icon">🗓️</div>
-      <div class="ow-body">
-        <div class="ow-label">Countdown to Vancouver</div>
-        <div class="ow-value" id="countdown-value">…</div>
-        <div class="ow-sub" id="countdown-hms" style="font-size:0.95rem;font-weight:700;color:var(--dark);margin-top:0.1rem;letter-spacing:0.5px;"></div>
-        <div class="ow-sub" id="countdown-sub">Train departs Apr 3 @ 9:21am</div>
+    <div class="ow-card" id="slideshow-card" onclick="openSlideshow(0)" style="cursor:pointer;padding:0;overflow:hidden;min-height:130px;position:relative;background:linear-gradient(135deg,#d4ecf4,#c6e3ed);">
+      <img id="ss-thumb" src="" alt="" style="width:100%;height:130px;object-fit:cover;display:none;opacity:0;transition:opacity 0.4s;" />
+      <div id="ss-placeholder" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.3rem;">
+        <div style="font-size:1.8rem;">📸</div>
+        <div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#5a9ab0;">Trip Photos</div>
+        <div id="ss-count" style="font-size:0.78rem;color:#7aacb8;">Loading…</div>
+      </div>
+      <div id="ss-overlay" style="display:none;position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.62) 0%,transparent 55%);pointer-events:none;"></div>
+      <div id="ss-footer" style="display:none;position:absolute;bottom:0;left:0;right:0;padding:0.5rem 0.75rem;">
+        <div style="font-size:0.62rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.7);">📸 Trip Photos</div>
+        <div id="ss-count-photo" style="font-size:0.78rem;font-weight:700;color:white;"></div>
       </div>
     </div>
     <div class="ow-card" id="current-wx-card">
@@ -569,6 +575,20 @@
         <div class="ow-label">Song of the Day</div>
         <div class="ow-value" id="sotd-title" style="font-size:1rem;">Loading…</div>
         <div class="ow-sub" id="sotd-artist"></div>
+      </div>
+    </div>
+
+    <!-- Trip Photo Lightbox -->
+    <div id="ss-lightbox" onclick="closeSlideshow()" style="display:none;position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,0.95);flex-direction:column;align-items:center;justify-content:center;">
+      <button onclick="event.stopPropagation();closeSlideshow()" style="position:absolute;top:0.75rem;right:0.75rem;background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:40px;height:40px;color:white;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:1;">✕</button>
+      <div id="ss-img-wrap" onclick="event.stopPropagation()" ontouchstart="_ssTouchStart(event)" ontouchend="_ssTouchEnd(event)" style="position:relative;display:flex;align-items:center;justify-content:center;width:100%;flex:1;padding:0 3.5rem;box-sizing:border-box;">
+        <button onclick="slideshowNav(-1)" class="ss-nav-btn" style="left:0.25rem;">‹</button>
+        <img id="ss-full-img" src="" alt="" style="max-width:100%;max-height:calc(100vh - 110px);object-fit:contain;border-radius:6px;transition:opacity 0.2s;" />
+        <button onclick="slideshowNav(1)" class="ss-nav-btn" style="right:0.25rem;">›</button>
+      </div>
+      <div onclick="event.stopPropagation()" style="padding:0.5rem 1rem 1.25rem;text-align:center;flex-shrink:0;">
+        <div id="ss-caption" style="color:rgba(255,255,255,0.75);font-size:0.85rem;"></div>
+        <div id="ss-counter" style="color:rgba(255,255,255,0.4);font-size:0.75rem;margin-top:0.2rem;"></div>
       </div>
     </div>
 
@@ -1734,6 +1754,7 @@ function showPanel(id, skipScroll) {
     loadCurrentPoll(); // Load polls when Overview is opened
   }
   if(id==='polls-archive') {
+    loadPollArchive();
     displayPollArchive();
   }
   if(id==='family') { loadAllResponses(); renderProgressTracker('cp-grid-family'); }
@@ -1915,42 +1936,135 @@ function setWeatherWidget(dayId, icon, text, isLive) {
 loadWeather();
 
 // ═══════════════════════════════════════════════════
-// ─── COUNTDOWN ──────────────────────────────────────
+// ─── TRIP PHOTO SLIDESHOW ───────────────────────────
 // ═══════════════════════════════════════════════════
-function updateCountdown() {
-  const target = new Date('2026-04-03T09:21:00-07:00'); // Train departs 9:21am PDT
-  const now = new Date();
-  const diff = target - now;
-  const el = document.getElementById('countdown-value');
-  const sub = document.getElementById('countdown-sub');
-  if (!el) return;
-  if (diff <= 0) {
-    el.textContent = "All Aboard! 🚂";
-    sub.textContent = "Vancouver, here we come!";
-    document.getElementById('countdown-card').style.background = 'linear-gradient(135deg,#2d6a4f,#52b788)';
-    document.getElementById('countdown-card').style.color = 'white';
-    document.querySelectorAll('#countdown-card .ow-label, #countdown-card .ow-sub').forEach(e => e.style.color = 'rgba(255,255,255,0.75)');
-    const hmsEl = document.getElementById('countdown-hms'); if (hmsEl) hmsEl.textContent = '';
-    document.querySelectorAll('#countdown-card .ow-value').forEach(e => e.style.color = 'white');
-    return;
-  }
-  const days = Math.floor(diff / 86400000);
-  const hrs  = Math.floor((diff % 86400000) / 3600000);
-  const mins = Math.floor((diff % 3600000) / 60000);
-  const secs = Math.floor((diff % 60000) / 1000);
-  const hms = document.getElementById('countdown-hms');
-  if (days >= 1) {
-    el.textContent = `${days} ${days === 1 ? 'Day' : 'Days'}`;
-    if (hms) hms.textContent = `${hrs}h ${mins}m ${secs}s`;
-    sub.textContent = 'Train departs Apr 3 @ 9:21am · Everett → Vancouver';
-  } else {
-    el.textContent = `${hrs}h ${mins}m ${secs}s`;
-    if (hms) hms.textContent = '';
-    sub.textContent = 'Train departs at 9:21am — let\'s go! 🚂';
+const ICLOUD_TOKEN = 'B2XGgZLKuGAqpVP';
+let slideshowPhotos = [];
+let slideshowIdx = 0;
+let _ssTouchX = 0;
+
+async function loadICloudAlbum() {
+  try {
+    let host = 'p62-sharedstreams.icloud.com';
+
+    // Step 1: fetch stream metadata; handle 330 partition redirect
+    let resp = await fetch(`https://${host}/${ICLOUD_TOKEN}/sharedstreams/webstream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ streamCtag: null })
+    });
+    if (resp.status === 330) {
+      const redir = await resp.json();
+      host = redir['X-Apple-MMe-Host'];
+      resp = await fetch(`https://${host}/${ICLOUD_TOKEN}/sharedstreams/webstream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ streamCtag: null })
+      });
+    }
+    const stream = await resp.json();
+    const photos = stream.photos || [];
+    if (!photos.length) { _ssCardReady([]); return; }
+
+    // Step 2: fetch CDN asset URLs
+    const urlResp = await fetch(`https://${host}/${ICLOUD_TOKEN}/sharedstreams/webasseturls`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photoGuids: photos.map(p => p.photoGuid) })
+    });
+    const urlData = await urlResp.json();
+    const items = urlData.items || {};
+
+    slideshowPhotos = photos.flatMap(photo => {
+      const derivs = photo.derivatives || {};
+      const dKeys = Object.keys(derivs);
+      // Prefer '2048' size; fall back to anything that isn't the original
+      const key = dKeys.find(k => k === '2048')
+               || dKeys.find(k => k !== '5003')
+               || dKeys[0];
+      if (!key) return [];
+      const checksum = (derivs[key] || {}).checksum;
+      const loc = checksum && items[checksum];
+      if (!loc) return [];
+      return [{ url: `https://${loc.url_location}${loc.url_path}`, caption: photo.caption || '' }];
+    });
+
+    _ssCardReady(slideshowPhotos);
+  } catch (e) {
+    console.warn('iCloud album error:', e);
+    _ssCardReady([]);
   }
 }
-updateCountdown();
-setInterval(updateCountdown, 1000);
+
+function _ssCardReady(photos) {
+  const n = photos.length;
+  const label = n ? `${n} photo${n !== 1 ? 's' : ''}` : 'Tap to view';
+  const countEl = document.getElementById('ss-count');
+  const countPhEl = document.getElementById('ss-count-photo');
+  if (countEl) countEl.textContent = label;
+  if (countPhEl) countPhEl.textContent = label;
+  if (!n) return;
+  const thumb = document.getElementById('ss-thumb');
+  if (thumb) {
+    thumb.style.display = 'block';
+    thumb.src = photos[0].url;
+    thumb.onload = () => {
+      thumb.style.opacity = '1';
+      const ph = document.getElementById('ss-placeholder');
+      if (ph) ph.style.display = 'none';
+      document.getElementById('ss-overlay').style.display = 'block';
+      document.getElementById('ss-footer').style.display = 'block';
+    };
+  }
+}
+
+function openSlideshow(idx) {
+  if (!slideshowPhotos.length) return;
+  slideshowIdx = Math.max(0, Math.min(idx || 0, slideshowPhotos.length - 1));
+  const lb = document.getElementById('ss-lightbox');
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  _ssRenderLightbox();
+}
+
+function closeSlideshow() {
+  const lb = document.getElementById('ss-lightbox');
+  if (lb) lb.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function slideshowNav(dir) {
+  if (!slideshowPhotos.length) return;
+  slideshowIdx = (slideshowIdx + dir + slideshowPhotos.length) % slideshowPhotos.length;
+  _ssRenderLightbox();
+}
+
+function _ssRenderLightbox() {
+  const photo = slideshowPhotos[slideshowIdx];
+  if (!photo) return;
+  const img = document.getElementById('ss-full-img');
+  const cap = document.getElementById('ss-caption');
+  const ctr = document.getElementById('ss-counter');
+  if (img) { img.style.opacity = '0'; img.src = photo.url; img.onload = () => { img.style.opacity = '1'; }; }
+  if (cap) cap.textContent = photo.caption;
+  if (ctr) ctr.textContent = `${slideshowIdx + 1} / ${slideshowPhotos.length}`;
+}
+
+function _ssTouchStart(e) { _ssTouchX = e.touches[0].clientX; }
+function _ssTouchEnd(e) {
+  const dx = e.changedTouches[0].clientX - _ssTouchX;
+  if (Math.abs(dx) > 40) slideshowNav(dx < 0 ? 1 : -1);
+}
+
+document.addEventListener('keydown', e => {
+  const lb = document.getElementById('ss-lightbox');
+  if (!lb || lb.style.display === 'none') return;
+  if (e.key === 'ArrowLeft') slideshowNav(-1);
+  else if (e.key === 'ArrowRight') slideshowNav(1);
+  else if (e.key === 'Escape') closeSlideshow();
+});
+
+loadICloudAlbum();
 
 
 // ═══════════════════════════════════════════════════
