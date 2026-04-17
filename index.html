@@ -1941,43 +1941,77 @@ loadWeather();
 let slideshowPhotos = [];
 let slideshowIdx = 0;
 let _ssTouchX = 0;
+let _ssLoading = false;
+let _ssLoadError = null;
 
 async function loadICloudAlbum() {
+  if (_ssLoading) return;
+  _ssLoading = true;
+  _ssLoadError = null;
+  const countEl = document.getElementById('ss-count');
+  if (countEl && !slideshowPhotos.length) countEl.textContent = 'Loading…';
   try {
     const resp = await fetch('/.netlify/functions/icloud');
     const data = await resp.json();
     slideshowPhotos = data.photos || [];
+    _ssLoadError = data.error || null;
     _ssCardReady(slideshowPhotos);
   } catch (e) {
     console.warn('iCloud album error:', e);
+    _ssLoadError = e.message;
     _ssCardReady([]);
+  } finally {
+    _ssLoading = false;
   }
 }
 
 function _ssCardReady(photos) {
   const n = photos.length;
-  const label = n ? `${n} photo${n !== 1 ? 's' : ''}` : 'Tap to view';
   const countEl = document.getElementById('ss-count');
   const countPhEl = document.getElementById('ss-count-photo');
-  if (countEl) countEl.textContent = label;
-  if (countPhEl) countPhEl.textContent = label;
-  if (!n) return;
-  const thumb = document.getElementById('ss-thumb');
-  if (thumb) {
-    thumb.style.display = 'block';
-    thumb.src = photos[0].url;
-    thumb.onload = () => {
-      thumb.style.opacity = '1';
-      const ph = document.getElementById('ss-placeholder');
-      if (ph) ph.style.display = 'none';
-      document.getElementById('ss-overlay').style.display = 'block';
-      document.getElementById('ss-footer').style.display = 'block';
-    };
+  if (n) {
+    const label = `${n} photo${n !== 1 ? 's' : ''}`;
+    if (countEl) countEl.textContent = label;
+    if (countPhEl) countPhEl.textContent = label;
+    const thumb = document.getElementById('ss-thumb');
+    if (thumb) {
+      thumb.style.display = 'block';
+      thumb.src = photos[0].url;
+      thumb.onload = () => {
+        thumb.style.opacity = '1';
+        const ph = document.getElementById('ss-placeholder');
+        if (ph) ph.style.display = 'none';
+        document.getElementById('ss-overlay').style.display = 'block';
+        document.getElementById('ss-footer').style.display = 'block';
+      };
+    }
+  } else {
+    if (countEl) countEl.textContent = 'Tap to retry';
+    if (countPhEl) countPhEl.textContent = 'No photos yet';
   }
 }
 
 function openSlideshow(idx) {
-  if (!slideshowPhotos.length) return;
+  if (!slideshowPhotos.length) {
+    const lb = document.getElementById('ss-lightbox');
+    lb.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    const img = document.getElementById('ss-full-img');
+    const cap = document.getElementById('ss-caption');
+    const ctr = document.getElementById('ss-counter');
+    if (img) img.src = '';
+    if (cap) cap.textContent = 'Checking for photos…';
+    if (ctr) ctr.textContent = '';
+    loadICloudAlbum().then(() => {
+      if (slideshowPhotos.length) {
+        slideshowIdx = 0;
+        _ssRenderLightbox();
+      } else {
+        if (cap) cap.textContent = _ssLoadError ? `Couldn't load photos: ${_ssLoadError}` : 'No photos available yet.';
+      }
+    });
+    return;
+  }
   slideshowIdx = Math.max(0, Math.min(idx || 0, slideshowPhotos.length - 1));
   const lb = document.getElementById('ss-lightbox');
   lb.style.display = 'flex';
@@ -3404,42 +3438,7 @@ async function loadAllResponses() {
   const profileList = Object.keys(PROFILES);
   let html = '';
 
-  // ── 1. Family Picks leaderboard ───────────────────
-  const allSuggested = foodData
-    .map(r => ({ r, count: getSuggestionCount(r.name) }))
-    .filter(x => x.count > 0)
-    .sort((a, b) => b.count - a.count);
-
-  html += '<div class="family-section">';
-  html += '<div class="family-section-header">💡 Family Picks</div>';
-  if (allSuggested.length) {
-    allSuggested.forEach(({ r, count }, i) => {
-      const col = hoodColor(r.hood || canonicalHood(r.area));
-      const pips = Object.entries(PROFILES)
-        .filter(([pName]) => allProfiles.suggestions[pName] && allProfiles.suggestions[pName][r.name] && allProfiles.suggestions[pName][r.name].suggested)
-        .map(([_, p]) => '<span class="fav-pip" style="background:' + p.color + ';color:white">' + p.emoji + '</span>')
-        .join('');
-      // Collect text notes
-      const notes = Object.entries(PROFILES)
-        .filter(([pName]) => allProfiles.suggestions[pName] && allProfiles.suggestions[pName][r.name] && allProfiles.suggestions[pName][r.name].text)
-        .map(([pName, p]) => '<span style="color:' + p.color + ';font-weight:700">' + p.emoji + '</span> <span style="font-style:italic;color:#666">&ldquo;' + allProfiles.suggestions[p.name || pName][r.name].text.replace(/</g,'&lt;') + '&rdquo;</span>')
-        .join(' &nbsp;·&nbsp; ');
-      html += '<div class="family-review-card" style="border-left-color:' + col + ';margin-bottom:0.5rem">';
-      html += '<div style="display:flex;align-items:center;gap:0.5rem">';
-      html += '<span style="font-size:0.72rem;font-weight:800;color:#9aabac;width:16px">' + (i+1) + '</span>';
-      html += (r.link ? '<a href="' + r.link + '" target="_blank" style="flex:1;font-weight:700;color:var(--dark);text-decoration:underline;text-decoration-color:rgba(0,0,0,0.2)">' + r.name + '</a>' : '<strong style="flex:1">' + r.name + '</strong>');
-      html += '<span class="fav-pips">' + pips + '</span>';
-      html += '<span style="font-size:0.72rem;font-weight:800;color:var(--ocean)">' + count + '</span>';
-      html += '</div>';
-      if (notes) html += '<div style="font-size:0.76rem;margin-top:0.35rem;line-height:1.5">' + notes + '</div>';
-      html += '</div>';
-    });
-  } else {
-    html += '<p class="family-empty">No suggestions yet — start suggesting restaurants!</p>';
-  }
-  html += '</div>';
-
-  // ── 2. Challenge Responses (all profiles) ─────────
+  // Pre-load challenge data (needed for diary + challenge sections)
   const allKeys = [];
   const dayEntries = Object.entries(challengeData);
   dayEntries.forEach(([dayId, challenges]) => {
@@ -3457,36 +3456,7 @@ async function loadAllResponses() {
     lookup[dayId][ch.id][pName] = allResults[i];
   });
 
-  html += '<div class="family-section">';
-  html += '<div class="family-section-header">✍️ Challenge Responses</div>';
-  let anyChallenge = false;
-  dayEntries.forEach(([dayId, challenges], dayIdx) => {
-    const dateLabel = dayLabels[dayIdx] || dayId;
-    challenges.forEach(ch => {
-      const chResults = lookup[dayId][ch.id];
-      const hasAny = profileList.some(pName => chResults[pName] !== null);
-      if (!hasAny) return;
-      anyChallenge = true;
-      html += '<div class="all-challenge-block">';
-      html += '<div class="all-challenge-meta">' + dateLabel + ' · ' + ch.emoji + ' ' + ch.type.toUpperCase() + '</div>';
-      html += '<div class="all-challenge-prompt">' + ch.prompt + '</div>';
-      profileList.forEach(pName => {
-        const r = chResults[pName];
-        if (!r) return;
-        const p = PROFILES[pName];
-        const safeResp = String(r.response).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        html += '<div class="all-response-row">'
-          + '<div class="all-response-avatar" style="background:' + p.color + '">' + p.emoji + '</div>'
-          + '<div class="all-response-text"><strong>' + pName + ':</strong> ' + safeResp + '</div>'
-          + '</div>';
-      });
-      html += '</div>';
-    });
-  });
-  if (!anyChallenge) html += '<p class="family-empty">No responses recorded yet.</p>';
-  html += '</div>';
-
-  // ── 2b. Vacation Diary (all profiles) ──────────────
+  // ── 1. Family Vacation Diary ──────────────────────
   html += '<div class="family-section">';
   html += '<div class="family-section-header">📖 Family Vacation Diary</div>';
   let anyDiaryAll = false;
@@ -3515,7 +3485,7 @@ async function loadAllResponses() {
   if (!anyDiaryAll) html += '<p class="family-empty">No diary entries yet — complete the 📖 Today\'s Diary challenge each day!</p>';
   html += '</div>';
 
-  // ── 3. Restaurant Reviews (all profiles, sorted by review count) ──
+  // ── 2. Restaurant Reviews (all profiles, sorted by review count) ──
   html += '<div class="family-section">';
   html += '<div class="family-section-header">⭐ Restaurant Reviews</div>';
   const reviewMap = {};
@@ -3547,6 +3517,72 @@ async function loadAllResponses() {
     });
   } else {
     html += '<p class="family-empty">No reviews written yet.</p>';
+  }
+  html += '</div>';
+
+  // ── 3. Challenge Responses (excluding diary, shown above) ─────────
+  html += '<div class="family-section">';
+  html += '<div class="family-section-header">✍️ Challenge Responses</div>';
+  let anyChallenge = false;
+  dayEntries.forEach(([dayId, challenges], dayIdx) => {
+    const dateLabel = dayLabels[dayIdx] || dayId;
+    challenges.forEach(ch => {
+      if (ch.type === 'diary') return;
+      const chResults = lookup[dayId][ch.id];
+      const hasAny = profileList.some(pName => chResults[pName] !== null);
+      if (!hasAny) return;
+      anyChallenge = true;
+      html += '<div class="all-challenge-block">';
+      html += '<div class="all-challenge-meta">' + dateLabel + ' · ' + ch.emoji + ' ' + ch.type.toUpperCase() + '</div>';
+      html += '<div class="all-challenge-prompt">' + ch.prompt + '</div>';
+      profileList.forEach(pName => {
+        const r = chResults[pName];
+        if (!r) return;
+        const p = PROFILES[pName];
+        const safeResp = String(r.response).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        html += '<div class="all-response-row">'
+          + '<div class="all-response-avatar" style="background:' + p.color + '">' + p.emoji + '</div>'
+          + '<div class="all-response-text"><strong>' + pName + ':</strong> ' + safeResp + '</div>'
+          + '</div>';
+      });
+      html += '</div>';
+    });
+  });
+  if (!anyChallenge) html += '<p class="family-empty">No responses recorded yet.</p>';
+  html += '</div>';
+
+  // ── 4. Family Picks leaderboard ───────────────────
+  const allSuggested = foodData
+    .map(r => ({ r, count: getSuggestionCount(r.name) }))
+    .filter(x => x.count > 0)
+    .sort((a, b) => b.count - a.count);
+
+  html += '<div class="family-section">';
+  html += '<div class="family-section-header">💡 Family Picks</div>';
+  if (allSuggested.length) {
+    allSuggested.forEach(({ r, count }, i) => {
+      const col = hoodColor(r.hood || canonicalHood(r.area));
+      const pips = Object.entries(PROFILES)
+        .filter(([pName]) => allProfiles.suggestions[pName] && allProfiles.suggestions[pName][r.name] && allProfiles.suggestions[pName][r.name].suggested)
+        .map(([_, p]) => '<span class="fav-pip" style="background:' + p.color + ';color:white">' + p.emoji + '</span>')
+        .join('');
+      // Collect text notes
+      const notes = Object.entries(PROFILES)
+        .filter(([pName]) => allProfiles.suggestions[pName] && allProfiles.suggestions[pName][r.name] && allProfiles.suggestions[pName][r.name].text)
+        .map(([pName, p]) => '<span style="color:' + p.color + ';font-weight:700">' + p.emoji + '</span> <span style="font-style:italic;color:#666">&ldquo;' + allProfiles.suggestions[p.name || pName][r.name].text.replace(/</g,'&lt;') + '&rdquo;</span>')
+        .join(' &nbsp;·&nbsp; ');
+      html += '<div class="family-review-card" style="border-left-color:' + col + ';margin-bottom:0.5rem">';
+      html += '<div style="display:flex;align-items:center;gap:0.5rem">';
+      html += '<span style="font-size:0.72rem;font-weight:800;color:#9aabac;width:16px">' + (i+1) + '</span>';
+      html += (r.link ? '<a href="' + r.link + '" target="_blank" style="flex:1;font-weight:700;color:var(--dark);text-decoration:underline;text-decoration-color:rgba(0,0,0,0.2)">' + r.name + '</a>' : '<strong style="flex:1">' + r.name + '</strong>');
+      html += '<span class="fav-pips">' + pips + '</span>';
+      html += '<span style="font-size:0.72rem;font-weight:800;color:var(--ocean)">' + count + '</span>';
+      html += '</div>';
+      if (notes) html += '<div style="font-size:0.76rem;margin-top:0.35rem;line-height:1.5">' + notes + '</div>';
+      html += '</div>';
+    });
+  } else {
+    html += '<p class="family-empty">No suggestions yet — start suggesting restaurants!</p>';
   }
   html += '</div>';
 
