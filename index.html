@@ -1952,6 +1952,10 @@ async function loadICloudAlbum() {
   if (countEl && !slideshowPhotos.length) countEl.textContent = 'Loading…';
   try {
     const resp = await fetch('/.netlify/functions/icloud');
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(`HTTP ${resp.status}: ${text.slice(0, 120)}`);
+    }
     const data = await resp.json();
     slideshowPhotos = data.photos || [];
     _ssLoadError = data.error || null;
