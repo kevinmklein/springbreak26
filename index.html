@@ -588,7 +588,11 @@
       </div>
       <div onclick="event.stopPropagation()" style="padding:0.5rem 1rem 1.25rem;text-align:center;flex-shrink:0;">
         <div id="ss-caption" style="color:rgba(255,255,255,0.75);font-size:0.85rem;"></div>
-        <div id="ss-counter" style="color:rgba(255,255,255,0.4);font-size:0.75rem;margin-top:0.2rem;"></div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:0.6rem;margin-top:0.25rem;">
+          <div id="ss-counter" style="color:rgba(255,255,255,0.4);font-size:0.75rem;"></div>
+          <button id="ss-shuffle-btn" onclick="slideshowShuffle()" style="background:rgba(255,255,255,0.1);border:none;border-radius:12px;padding:0.1rem 0.45rem;color:rgba(255,255,255,0.45);font-size:0.72rem;cursor:pointer;line-height:1.6;">🔀</button>
+        </div>
+        <input type="range" id="ss-scrubber" min="0" max="421" value="0" oninput="slideshowScrub(this.value)" onclick="event.stopPropagation()" ontouchstart="event.stopPropagation()" ontouchmove="event.stopPropagation()" ontouchend="event.stopPropagation()" style="width:100%;margin-top:0.35rem;accent-color:rgba(255,255,255,0.6);opacity:0.45;" />
       </div>
     </div>
 
@@ -1943,6 +1947,8 @@ let slideshowIdx = 0;
 let _ssTouchX = 0;
 let _ssLoading = false;
 let _ssLoadError = null;
+let _ssShuffled = false;
+let _ssOrigPhotos = null;
 
 async function loadICloudAlbum() {
   if (_ssLoading) return;
@@ -2036,6 +2042,43 @@ function slideshowNav(dir) {
 }
 
 function _ssRenderLightbox() {
+  const photo = slideshowPhotos[slideshowIdx];
+  if (!photo) return;
+  const img = document.getElementById('ss-full-img');
+  const cap = document.getElementById('ss-caption');
+  const ctr = document.getElementById('ss-counter');
+  const scrubber = document.getElementById('ss-scrubber');
+  if (img) { img.style.opacity = '0'; img.src = photo.url; img.onload = () => { img.style.opacity = '1'; }; }
+  if (cap) cap.textContent = photo.caption;
+  if (ctr) ctr.textContent = `${slideshowIdx + 1} / ${slideshowPhotos.length}`;
+  if (scrubber) { scrubber.max = slideshowPhotos.length - 1; scrubber.value = slideshowIdx; }
+}
+
+function slideshowShuffle() {
+  if (!slideshowPhotos.length) return;
+  if (!_ssShuffled) {
+    _ssOrigPhotos = [...slideshowPhotos];
+    for (let i = slideshowPhotos.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [slideshowPhotos[i], slideshowPhotos[j]] = [slideshowPhotos[j], slideshowPhotos[i]];
+    }
+    _ssShuffled = true;
+  } else {
+    if (_ssOrigPhotos) slideshowPhotos.splice(0, Infinity, ..._ssOrigPhotos);
+    _ssShuffled = false;
+  }
+  slideshowIdx = 0;
+  _ssRenderLightbox();
+  const btn = document.getElementById('ss-shuffle-btn');
+  if (btn) {
+    btn.style.background = _ssShuffled ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.1)';
+    btn.style.color = _ssShuffled ? '#fff' : 'rgba(255,255,255,0.45)';
+  }
+}
+
+function slideshowScrub(val) {
+  if (!slideshowPhotos.length) return;
+  slideshowIdx = Math.max(0, Math.min(parseInt(val, 10), slideshowPhotos.length - 1));
   const photo = slideshowPhotos[slideshowIdx];
   if (!photo) return;
   const img = document.getElementById('ss-full-img');
