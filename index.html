@@ -1153,7 +1153,7 @@ const foodData = [
 
 // ─── MAP INIT ───────────────────────────────────────
 const map = L.map('leaflet-map').setView([49.283, -123.13], 12);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution:'© OpenStreetMap © CARTO', maxZoom:19 }).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution:'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ', maxZoom:16 }).addTo(map);
 
 const typeColors = { home:"#7c3aed", museum:"#1a5f7a", nature:"#2d6a4f", explore:"#c47d1a", activity:"#7c4ab0", food:"#e07a5f" };
 
