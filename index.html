@@ -1951,14 +1951,14 @@ async function loadICloudAlbum() {
   const countEl = document.getElementById('ss-count');
   if (countEl && !slideshowPhotos.length) countEl.textContent = 'Loading…';
   try {
-    const resp = await fetch('/.netlify/functions/icloud');
+    const resp = await fetch('https://vancouver26.monkeybear.us/manifest.json');
     if (!resp.ok) {
       const text = await resp.text().catch(() => '');
       throw new Error(`HTTP ${resp.status}: ${text.slice(0, 120)}`);
     }
     const data = await resp.json();
-    slideshowPhotos = data.photos || [];
-    _ssLoadError = data.error || null;
+    slideshowPhotos = Array.isArray(data) ? data : (data.photos || []);
+    _ssLoadError = null;
     _ssCardReady(slideshowPhotos);
   } catch (e) {
     console.warn('iCloud album error:', e);

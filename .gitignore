@@ -1,4 +1,6 @@
 .DS_Store
+photos/.env
+photos/node_modules/
 *.zip
 session-handoff-60.md
 CLAUDE.md
