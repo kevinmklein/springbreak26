@@ -1,6 +1,5 @@
 [functions]
   directory = "netlify/functions"
-  timeout = 20
 
 [[redirects]]
   from = "/api/icloud"
